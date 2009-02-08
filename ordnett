@@ -1,0 +1,171 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*- 
+import urllib2, sys, re
+
+books = {
+	5: "Engelsk-norsk", #en
+	21: "Engelsk-norsk medisinsk", #med
+	9: "Fransk-norsk", #fn
+	2: "Fremmedord", #nok
+	17: "Medisinsk ordbok", #med
+	23: "Norsk ordbok", #nok
+	1: "Norsk-engelsk", #ne
+	22: "Norsk-engelsk medisinsk", #med
+	10: "Norsk-fransk", #nf
+	16: "Norsk-spansk", #ns
+	8: "Norsk-tysk", # nt
+	3: "Norske synonymer", #syn
+	20: "Nynorsk", #ny
+	#Oxford Dictionary of English
+	#Oxford Dictionary of Quotations
+	#Oxford Thesaurus of English
+	15: "Spansk-norsk", #sn
+	19: "Stor engelsk-norsk", #en
+	18: "Stor norsk-engelsk", #ne
+	12: "Teknisk engelsk-norsk",
+	11: "Teknisk norsk-engelsk",
+	28: "Teknisk norsk-tysk",
+	27: "Teknisk tysk-norsk",
+	7: "Tysk-norsk", #tn
+	14: "Økonomisk engelsk-norsk",
+	13: "Økonomisk norsk-engelsk",
+	6: "Norsk Riksmålsordbok",
+}
+
+groups = {
+	"med": [17, 21, 22],
+	"bok": [6],
+	"ny": [20],
+	"nok": [6, 20, 2, 23],
+	"syn": [3],
+	"fn": [9],
+	"nf": [10],
+	"en": [5, 19],
+	"ne": [1, 18],
+	"sn": [15],
+	"ns": [16],
+	"tn": [7],
+	"nt": [8],
+}
+
+letters = {
+	"&#xF8;": "ø",
+	"&#xE5;": "å",
+	"&#xE6;": "æ",
+	"&#xE7;": "ç",
+	"&#x2022;": "•",
+	"&#xEA;": "ê",
+	"&#xE9;": "é",
+	"&#xF3;": "ó",
+	"&#xE0;": "à",
+	"&#x25CF;": "•",
+	"&#596;&#58;": "ɔ:",
+	"&#8211;": "–",
+	"&aring;": "å"
+}
+
+_word = None
+_books = []
+_params = []
+
+for p in sys.argv[1:]:
+	if p[0:2] == "--":
+		_params.append(p[2:])
+	elif p[0:1] == "-":
+		if re.match('^\d+$', p[1:]):
+			_books.append(int(p[1:]))
+		elif groups.has_key(p[1:]):
+			_books += groups[p[1:]]
+	else:
+		_word = p
+
+if "help" in _params:
+	print "  Available parameters:"
+	print "  --help\tShow this informatioin"
+	print "  --books\tShow available books"
+	print "  --groups\tShow groups of books"
+	print ""
+	print "  Available groups of books:"
+	print " ",
+	for m in groups:
+		print "-" + m,
+	print ""
+	print "  To use a single book, use -[number of book]."
+	print ""
+	print "  Usage: ordnett [params] [books] [word]"
+
+elif "books" in _params:
+	# List available books
+	print "Available books:"
+	for k in books:
+		print "\t", k, "\t", books[k]
+
+elif "groups" in _params:
+	# List books in groups
+	for k in groups:
+		print k,
+		for b in groups[k]:
+			print "\t", books[b]
+
+elif _word:
+
+	from htmlentitydefs import name2codepoint
+	def htmlentitydecode(s):
+		return re.sub('&x(%s);' % '|'.join(name2codepoint), lambda m:
+			name2codepoint[m.group(1)], s)
+
+	if len(_books) == 0:
+		_books = books.keys()
+
+	url = "http://ordnett.no/ordbok.html?search=" + _word + "&search_type="
+	for b in _books:
+		url += "&publications=" + str(b)
+		
+	f = urllib2.urlopen(url)
+	data = htmlentitydecode(f.read()).decode('latin-1')
+	data = data[data.index("<!-- Search results -->"):data.index("<!-- End Search results -->")]
+	data = data.replace("\r", "").replace("\n", "").replace("&nbsp;", " ").replace("\t", "")
+
+	data = data.replace("<b>", "\033[1m").replace("</b>", "\033[22m")
+	data = data.replace("<LI>", "\t* ")
+	data = data.replace('<span class="red">', "\033[31m")
+	data = data.replace('<span class="green">', "\033[32m")
+	data = data.replace('<span class="black">', "\033[30m")
+	data = data.replace('<span class="hw">', "\033[1m")
+	data = data.replace('<span class="etym_ledetekst">', "\033[32m")
+	data = data.replace("</span>", "\033[0m")
+	data = data.replace('<font color="green">', "\033[32m").replace("</font>", "\033[0m")
+	data = data.replace('<i>', "\033[35m").replace("</i>", "\033[0m").replace('<I>', "\033[35m").replace("</I>", "\033[0m")
+	data = data.replace('<B>', "\033[1m").replace("</B>", "\033[22m")
+	data = data.replace('<strong>', "\033[1m").replace("</strong>", "\033[22m")
+
+	data = re.sub('<div class="title">(.*?)</div>', "", data)
+	data = re.sub('<div class="(prev|next)hits">(.*?)</div>', "", data)
+
+	for l in letters:
+		data = data.replace(l, letters[l].decode('utf-8'))
+
+	data = data.split("<hr/>")
+	if len(data) > 1:
+		data = data[1:]
+
+	for d in data:
+		d = re.sub('</h3>(.*?)<div class="article">', '</h3>', d)
+		d = re.sub('</h3>(.*?)<\?xml version="1.0"\?>', '</h3>', d)
+		d = re.sub('</h3>(.*?)<\?xml version="1.0" standalone="yes"\?>', '</h3>', d)
+
+		if d.find('<a name="rmo" >') > -1:
+			d = d.replace("<BR/>", "\n")
+		elif d.find('<a name="norskordbok" >') > -1:
+			d = re.sub("<div(.*?)>", "\n", d)
+
+		d = d.replace("<tr>", "\n").replace("<p>", "\n").replace("</LI>", "\n").replace("<DT>", "\n")
+		d = d.replace("<h3>", "\033[1;31m-- ").replace("</h3>", " -- \033[0m\n").replace("\n\n", "\n")
+		
+		d = re.sub("<(.*?)>", "", d)
+		d = d.replace("  om", "")
+		d = d.replace("\n\n", "\n").replace("\n\n", "\n").replace("\n\n", "\n")
+		
+		#print htmlentitydecode(d), "\n"
+		#print unescape("&#xE5;")
+		print d, "\n"
