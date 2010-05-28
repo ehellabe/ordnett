@@ -1,4 +1,3 @@
 === Ordnett for kommandolinjen ===
 
-Programmet lar brukere slå opp på ordnett.no fra kommandolinjen. Programmet gir ikke tilgang til flere oppslagsverk enn det brukeren har fra sin nettlokasjon, 
-og håndterer på det nåværende tidspunkt ikke innlogging.
+Programmet lar brukere slå opp på ordnett.no fra kommandolinjen. Programmet gir ikke tilgang til flere oppslagsverk enn det brukeren har fra sin nettlokasjon, og håndterer på det nåværende tidspunkt ikke innlogging.

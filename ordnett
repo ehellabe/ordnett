@@ -139,13 +139,14 @@ elif _word:
 	data = data.replace('<B>', "\033[1m").replace("</B>", "\033[22m")
 	data = data.replace('<strong>', "\033[1m").replace("</strong>", "\033[22m")
 
+	data = re.sub('<div class="article_footer">(.*?)</div>', "", data)
 	data = re.sub('<div class="title">(.*?)</div>', "", data)
 	data = re.sub('<div class="(prev|next)hits">(.*?)</div>', "", data)
 
 	for l in letters:
 		data = data.replace(l, letters[l].decode('utf-8'))
 
-	data = data.split("<hr/>")
+	data = data.split('<div class="publication_search_results">')
 	if len(data) > 1:
 		data = data[1:]
 
@@ -160,7 +161,7 @@ elif _word:
 			d = re.sub("<div(.*?)>", "\n", d)
 
 		d = d.replace("<tr>", "\n").replace("<p>", "\n").replace("</LI>", "\n").replace("<DT>", "\n")
-		d = d.replace("<h3>", "\033[1;31m-- ").replace("</h3>", " -- \033[0m\n").replace("\n\n", "\n")
+		d = d.replace("<h3>", "\n\033[1;31m-- ").replace("</h3>", " -- \033[0m\n").replace("\n\n", "\n").replace("\n\n", "\n")
 		
 		d = re.sub("<(.*?)>", "", d)
 		d = d.replace("  om", "")
@@ -168,4 +169,4 @@ elif _word:
 		
 		#print htmlentitydecode(d), "\n"
 		#print unescape("&#xE5;")
-		print d, "\n"
+		print d
